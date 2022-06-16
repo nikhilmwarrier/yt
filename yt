@@ -10,33 +10,44 @@ query=$(dmenu -nb $nb -sb $sb -fn $fn -p "Search YouTube: " <&- | tr ' ' '+')
 # exit if query is empty
 if [ -z $query ]; then exit 0; fi
 
-curl -s "https://yewtu.be/search?q=%$query" > ".temp-yt.html"
-cachedpage='cat ./.temp-yt.html'
-vidlist=$( $cachedpage | grep -Eo "watch\?v=.{11}")
+$urlSubstring="https://"
 
-titlelist=''
+if [[ $query =~ $urlSubstring ]]; then
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | dmenu -i -l 10 -nb $nb -sb $sb -fn $fn) 
 
-for i in $vidlist
-do
-    title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`"\t\t$i"
-    if ! [[ $titlelist =~ $i ]]
-    then 
-        titlelist=$titlelist"\n"$title
-    fi
-done
+        # exit if user did not pick a resolution
+        if [ -z $maxres ]; then exit 0; fi
 
-vid=$(echo -e $titlelist | uniq | dmenu -i -l 25 -nb $nb -sb $sb -fn $fn | awk 'BEGIN { FS = "\t\t" } ; {print $2}')
+        mpv "$query" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
+else
+        curl -s "https://yewtu.be/search?q=%$query" > ".temp-yt.html"
+        cachedpage='cat ./.temp-yt.html'
+        vidlist=$( $cachedpage | grep -Eo "watch\?v=.{11}")
 
-# exit if user did not pick a video
-if [ -z $vid ]; then exit 0; fi
+        titlelist=''
 
-url="https://youtube.com/$vid"
+        for i in $vidlist
+        do
+            title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`"\s\s\s\s\s\s\s\t\t$i"
+            if ! [[ $titlelist =~ $i ]]
+            then 
+                titlelist=$titlelist"\n"$title
+            fi
+        done
 
-rm "./.temp-yt.html"
+        vid=$(echo -e $titlelist | uniq | dmenu -i -l 25 -nb $nb -sb $sb -fn $fn | awk 'BEGIN { FS = "\t\t" } ; {print $2}')
 
-maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | dmenu -i -l 10 -nb $nb -sb $sb -fn $fn) 
+        # exit if user did not pick a video
+        if [ -z $vid ]; then exit 0; fi
 
-# exit if user did not pick a resolution
-if [ -z $maxres ]; then exit 0; fi
+        url="https://youtube.com/$vid"
 
-mpv "$url" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
+        rm "./.temp-yt.html"
+
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | dmenu -i -l 10 -nb $nb -sb $sb -fn $fn) 
+
+        # exit if user did not pick a resolution
+        if [ -z $maxres ]; then exit 0; fi
+
+        mpv "$url" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best" 
+fi
