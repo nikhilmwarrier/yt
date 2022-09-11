@@ -1,25 +1,23 @@
 #!/bin/bash
 
-# config
-nb="#333"
-sb="#8b0000"
-fn="monospace"
+query=$(rofi -dmenu -l 0 -p "Search YouTube: " <&- | tr ' ' '+')
 
-query=$(dmenu -nb $nb -sb $sb -fn $fn -p "Search YouTube: " <&- | tr ' ' '+')
 
 # exit if query is empty
 if [ -z $query ]; then exit 0; fi
 
-$urlSubstring="https://"
+urlSubstring="https://"
 
 if [[ $query =~ $urlSubstring ]]; then
-        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | dmenu -i -l 10 -nb $nb -sb $sb -fn $fn) 
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | rofi -dmenu -i -l 6 -p "Choose a resolution")
 
         # exit if user did not pick a resolution
         if [ -z $maxres ]; then exit 0; fi
 
+        notify-send --app-name="YT" "Loading video"
         mpv "$query" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
 else
+        notify-send --app-name="YT" "Searching for videos..."
         curl -s "https://yewtu.be/search?q=%$query" > ".temp-yt.html"
         cachedpage='cat ./.temp-yt.html'
         vidlist=$( $cachedpage | grep -Eo "watch\?v=.{11}")
@@ -28,14 +26,14 @@ else
 
         for i in $vidlist
         do
-            title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`"\s\s\s\s\s\s\s\t\t$i"
+            title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`"\t$i"
             if ! [[ $titlelist =~ $i ]]
-            then 
+            then
                 titlelist=$titlelist"\n"$title
             fi
         done
 
-        vid=$(echo -e $titlelist | uniq | dmenu -i -l 25 -nb $nb -sb $sb -fn $fn | awk 'BEGIN { FS = "\t\t" } ; {print $2}')
+        vid=$(echo -e $titlelist | uniq | rofi -dmenu -i -l 25 -p "Choose a video to watch" | awk 'BEGIN { FS = "\t" } ; {print $2}')
 
         # exit if user did not pick a video
         if [ -z $vid ]; then exit 0; fi
@@ -44,10 +42,11 @@ else
 
         rm "./.temp-yt.html"
 
-        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | dmenu -i -l 10 -nb $nb -sb $sb -fn $fn) 
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | rofi -dmenu -i -l 6 -p "Choose a resolution")
 
         # exit if user did not pick a resolution
         if [ -z $maxres ]; then exit 0; fi
 
-        mpv "$url" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best" 
+        notify-send --app-name="YT" "Loading video..."
+        mpv "$url" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
 fi
