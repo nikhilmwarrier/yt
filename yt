@@ -1,7 +1,14 @@
 #!/bin/bash
 
-query=$(rofi -dmenu -l 0 -p "Search YouTube: " <&- | tr ' ' '+')
+# if first argument exists set it as the url/search query
+if [ "$1" ]; then
+	query=$1
+fi
 
+# if first argument doesn't exist prompt the user for url/search query
+if [ -z $1 ]; then
+	query=$(rofi -dmenu -l 0 -p "Search YouTube: " <&- | tr ' ' '+')
+fi
 
 # exit if query is empty
 if [ -z $query ]; then exit 0; fi
@@ -9,10 +16,11 @@ if [ -z $query ]; then exit 0; fi
 urlSubstring="https://"
 
 if [[ $query =~ $urlSubstring ]]; then
-        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | rofi -dmenu -i -l 6 -p "Choose a resolution")
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080\nExit" | rofi -dmenu -i -l 7 -p "Choose a resolution")
 
         # exit if user did not pick a resolution
         if [ -z $maxres ]; then exit 0; fi
+        if [[ $maxres == "Exit" ]]; then exit 0; fi
 
         notify-send --app-name="YT" "Loading video"
         mpv "$query" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
