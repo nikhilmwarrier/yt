@@ -7,7 +7,7 @@ fi
 
 # if first argument doesn't exist prompt the user for url/search query
 if [ -z $1 ]; then
-	query=$(rofi -dmenu -l 0 -p "Search YouTube: " <&- | tr ' ' '+')
+	query=$(fuzzel --dmenu -l 0 -p "Search YouTube: " <&- | tr ' ' '+')
 fi
 
 # exit if query is empty
@@ -16,7 +16,7 @@ if [ -z $query ]; then exit 0; fi
 urlSubstring="https://"
 
 if [[ $query =~ $urlSubstring ]]; then
-        maxres=$(echo -e "144\n240\n360\n480\n720\n1080\nExit" | rofi -dmenu -i -l 7 -p "Choose a resolution")
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080\nExit" | fuzzel --dmenu -i -l 7 -p "Choose a resolution: ")
 
         # exit if user did not pick a resolution
         if [ -z $maxres ]; then exit 0; fi
@@ -30,30 +30,45 @@ else
         cachedpage='cat ./.temp-yt.html'
         vidlist=$( $cachedpage | grep -Eo "watch\?v=.{11}")
 
+	declare -A titlearr
         titlelist=''
 
         for i in $vidlist
         do
-            title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`"\t$i"
+            title="["`$cachedpage | pup 'a[href="/'$i'"] + div p.channel-name text{}'`"] "`$cachedpage | pup 'a[href="/'$i'"] > p text{}'`""
+
+	    # render ampersands properly
+	    title="${title/'&amp;'/'&'}"
+	    title="${title/'&#34;'/\"}"
+	    title="${title/'&#39;'/\'}"
+
+	    titlearr[$title]=$i
+	    
             if ! [[ $titlelist =~ $i ]]
             then
                 titlelist=$titlelist"\n"$title
             fi
         done
+	
+	echo ${!titlearr[@]}
 
-        vid=$(echo -e $titlelist | uniq | rofi -dmenu -i -l 25 -p "Choose a video to watch" | awk 'BEGIN { FS = "\t" } ; {print $2}')
-
+	# sed command strips out empty lines
+        # vid=$(echo -e $titlelist | uniq | sed '/^[[:space:]]*$/d' | fuzzel --dmenu -i -l 25 -p "Choose a video to watch: " | awk 'BEGIN { FS = "\t" } ; {print $2}')
+        vid=$(echo -e $titlelist | uniq | sed '/^[[:space:]]*$/d' | fuzzel --dmenu -i -l 25 -p "Choose a video to watch: ")
+	urlpart=${titlearr[$vid]}
+	echo $urlpart
+	
         # exit if user did not pick a video
-        if [ -z $vid ]; then exit 0; fi
+        if [ -z $urlpart ]; then exit 0; fi
 
-        url="https://youtube.com/$vid"
+        url="https://youtube.com/$urlpart"
 
         rm "./.temp-yt.html"
 
-        maxres=$(echo -e "144\n240\n360\n480\n720\n1080" | rofi -dmenu -i -l 6 -p "Choose a resolution")
-
+        maxres=$(echo -e "144\n240\n360\n480\n720\n1080\nExit" | fuzzel --dmenu -i -l 7 -p "Choose a resolution: ")
         # exit if user did not pick a resolution
         if [ -z $maxres ]; then exit 0; fi
+        if [[ $maxres == "Exit" ]]; then exit 0; fi
 
         notify-send --app-name="YT" "Loading video..."
         mpv "$url" --ytdl-format="bestvideo[height<=?"$maxres"]+bestaudio/best"
